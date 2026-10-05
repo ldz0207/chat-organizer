@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "inventory_sha256": "189f8d7c6ee3219f48992a49c5d5c1417130d9d2e4f514f35422ea48782a284e",
+  "groups": [
+    {
+      "id": "existing:research",
+      "name": "研究",
+      "description": "科研与学习，保留既有分类"
+    },
+    {
+      "id": "new:events",
+      "name": "活动",
+      "description": "活动准备与执行"
+    }
+  ],
+  "assignments": [
+    {
+      "task_id": "task-2",
+      "target_group_id": "new:events",
+      "reason": "按活动准备目的归类"
+    }
+  ],
+  "pending": [
+    "task-4"
+  ]
+}

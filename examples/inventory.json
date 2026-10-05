@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "context": {
+    "harness": "ExampleHarness",
+    "version": "demo-1",
+    "device": "演示设备",
+    "account_scope": "虚构工作区",
+    "route": "proposal-only"
+  },
+  "snapshot_revision": "synthetic-snapshot-1",
+  "groups": [
+    {
+      "id": "existing:research",
+      "name": "研究",
+      "description": "科研与学习，保留既有分类"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task-1",
+      "title": "用户手动标题：数值方法笔记",
+      "group_id": "existing:research",
+      "status": "idle",
+      "active": false,
+      "protected": false,
+      "revision": "r1"
+    },
+    {
+      "id": "task-2",
+      "title": "准备活动材料",
+      "group_id": null,
+      "status": "idle",
+      "active": false,
+      "protected": false,
+      "revision": "r2"
+    },
+    {
+      "id": "task-3",
+      "title": "运行中的讨论",
+      "group_id": null,
+      "status": "running",
+      "active": true,
+      "protected": false,
+      "revision": "r3"
+    },
+    {
+      "id": "task-4",
+      "title": "待明确主题",
+      "group_id": null,
+      "status": "idle",
+      "active": false,
+      "protected": false,
+      "revision": "r4"
+    }
+  ]
+}

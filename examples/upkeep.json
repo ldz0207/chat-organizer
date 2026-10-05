@@ -1,0 +1,77 @@
+{
+  "now": 2000,
+  "context": {
+    "harness": "ExampleHarness",
+    "version": "demo-1",
+    "device": "演示设备",
+    "account_scope": "虚构工作区"
+  },
+  "taxonomy_sha256": "synthetic-taxonomy-1",
+  "trigger": "invocation",
+  "capabilities": {
+    "read_back": true,
+    "move": true,
+    "rename": true,
+    "conditional_write": true,
+    "event_delivery": false
+  },
+  "policy": {
+    "id": "demo-policy-1",
+    "enabled": false,
+    "approval_ref": "",
+    "context": {
+      "harness": "ExampleHarness",
+      "version": "demo-1",
+      "device": "演示设备",
+      "account_scope": "虚构工作区"
+    },
+    "taxonomy_sha256": "synthetic-taxonomy-1",
+    "actions": [
+      "move",
+      "rename"
+    ],
+    "allowed_group_ids": [
+      "existing:research"
+    ],
+    "triggers": [
+      "invocation"
+    ],
+    "max_per_run": 3,
+    "max_per_window": 10,
+    "window_seconds": 3600,
+    "debounce_seconds": 120,
+    "title_max_chars": 20,
+    "title_style": "动作+对象，简短，沿用用户语言，无emoji",
+    "expires_at": null,
+    "workspace_id": "workspace:demo",
+    "task_scope": "此工作区中新建或未分组的普通任务，不包含专有项目和自动化",
+    "allowed_task_categories": [
+      "new_or_ungrouped"
+    ]
+  },
+  "candidates": [
+    {
+      "task_id": "task-2",
+      "action": "rename",
+      "before": "未命名",
+      "target": "准备活动材料",
+      "reason": "上下文已稳定的演示候选",
+      "status": "idle",
+      "active": false,
+      "protected": false,
+      "current_revision": "r1",
+      "expected_revision": "r1",
+      "last_changed": 1000,
+      "classification_confident": true,
+      "manual_lock": false,
+      "title_owner": "default",
+      "ownership_verified": true,
+      "last_policy_title": null,
+      "style_matches": true,
+      "workspace_id": "workspace:demo",
+      "task_category": "new_or_ungrouped",
+      "scope_verified": true
+    }
+  ],
+  "ledger": []
+}
