@@ -8,6 +8,8 @@
 
 此适配器通过原生`thread/list`读`recencyAt`，每3秒检查活动变化，经原版已安装的`codex-app-tools` MCP执行同组移动并原生读回。`updatedAt`会受输出和元数据维护影响，不能替代用户活动时间。空闲期间只有Python与metadata app-server常驻；Node侧栏工具仅在变更批次或默认每60秒的健康检查时启动，结束后退出。不调用模型、不发消息，不产生循环推理token。
 
+Windows的“隐藏窗口”启动仍可能带来控制台宿主。2.3.1启动器优先配置python.exe同目录的pythonw.exe；CLI与Node子进程采用不继承控制台的DETACHED_PROCESS，stdio仍由重定向管道提供，见[微软进程创建标志](https://learn.microsoft.com/en-us/windows/win32/procthread/process-creation-flags)。当前实测省掉两个conhost，空闲两进程；Node调用时短暂增加一个进程。若同目录没有pythonw，保留原解释器，实际数量重新测量，不安装或猜其他运行时。
+
 这是当前实测接口下兼顾资源与及时性的方案，不能承诺绝对最小内存。Node短暂启动增加单次启动开销；当前原生CLI元数据进程仍有内存成本。受支持且真正投递的活动事件，或原生组内排序，才有进一步减少轮询的条件。不要通过读写内部数据库、修改应用包或自造管道协议省资源。
 
 ## 接入前核实

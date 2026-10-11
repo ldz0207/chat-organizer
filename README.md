@@ -1,4 +1,4 @@
-# AI Agent Harness 任务分组 · 2.3.0
+# AI Agent Harness 任务分组 · 2.3.1
 
 可复用的中文技能包：识别当前宿主与设备，先提分类方案并取得确认，再通过该应用真实支持的原生方式归组；不支持时只生成建议。
 
@@ -42,6 +42,8 @@ python -m unittest discover -s tests -v
 某个已验证 Windows Codex desktop 版本的自定义分组保存手动位置，通用“最近更新”排序没有覆盖组内。用户明确要求持续按聊天活动上移时，可选择 [Codex 活动排序适配器](references/codex-recency.md)。它保留现有组和归属，只对本地 Codex 会话执行同组顶部移动。
 
 适配器默认不执行；本机配置、真实执行器环境、当前原生能力和持续授权齐备后才通过 `start.ps1` 显式启动。每3秒读取活动元数据；侧栏工具进程仅在活动变化或有界健康检查时启动，读回后退出。空闲期间不保留该Node进程；监听不发起模型回合。没有通用跨宿主daemon或自动安装/开机启动。
+
+Windows启动器优先使用配置解释器同目录的`pythonw.exe`，接口子进程不附着控制台；当前实测空闲只保留Python与metadata接口两个业务进程。缺少同目录pythonw时保留原解释器，不安装新运行时。
 
 `examples/codex-recency-config.json` 是合成占位配置，不能直接启用。设备配置、授权记录、检查点和移动日志留在用户控制位置。版本、资源测量和未验证范围见 [验证记录](references/validation.md)。
 

@@ -16,7 +16,8 @@ class Rpc:
             [str(binary), "app-server", "--stdio"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8",
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            # Redirected pipes work without an attached Windows console.
+            creationflags=getattr(subprocess, "DETACHED_PROCESS", 0),
         )
         threading.Thread(target=self._read, daemon=True).start()
         threading.Thread(target=self._stderr, daemon=True).start()

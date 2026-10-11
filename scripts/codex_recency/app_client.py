@@ -18,7 +18,7 @@ class AppClient:
             [os.environ["CODEX_MCP_NODE_PATH"], str(server)],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding="utf-8",
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            creationflags=getattr(subprocess, "DETACHED_PROCESS", 0),
         )
         threading.Thread(target=self._read, daemon=True).start()
         threading.Thread(target=self._stderr, daemon=True).start()

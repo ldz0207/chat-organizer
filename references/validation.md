@@ -1,4 +1,15 @@
-# 验证记录 · 2.3.0
+# 验证记录 · 2.3.1
+
+## 2.3.1：省去控制台宿主
+
+日期：2026-10-12。沿用下方2.3.0的应用/后端/Python版本；当前Node为24.21.0。同目录pythonw.exe已存在，未安装运行时。
+
+- 用真实Windows进程树确认此前四进程为python.exe、metadata codex.exe及各自一个conhost.exe。GUI解释器加DETACHED_PROCESS后，正式worker空闲仅pythonw.exe和codex.exe；不是删除/终止系统宿主，而是不再创建它们。
+- 真实stdio thread/list与原版MCP list_threads读取、重定向stdout/stderr、EOF退出且无残留、正式worker心跳与启动器在线复用通过；自动检测/移动合同保持2.3.0逻辑。70项回归、PowerShell解析与diff检查通过。
+- 本次紧邻快照：4进程175.6 MiB常驻/52.8 MiB私有→2进程156.1 MiB/48.8 MiB，常驻再降约11.1%。2.3.0较早170.0 MiB与本次175.6 MiB属于不同时间，不能当固定占用；Node调用时临时资源另计。
+- 未新增模型回合、调度、配置范围、业务状态变更或安装。完整桌面重开、其他平台/版本、缺少同目录pythonw的fallback仍未实测。元数据CLI保留以维持当前已验证活动来源，不称绝对最小内存。
+
+# 历史验证记录 · 2.3.0
 
 ## 2.3.0：可选Codex活动排序适配器
 

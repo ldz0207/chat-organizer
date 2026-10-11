@@ -26,10 +26,15 @@ foreach ($name in @('CODEX_APP_TOOLS_PIPE_PATH','CODEX_THREAD_ID','CODEX_MCP_NOD
     if (-not [Environment]::GetEnvironmentVariable($name)) { throw ('Missing genuine executor environment: ' + $name) }
 }
 if ($env:CODEX_VERSION -ne $config.backend_version) { throw 'Codex version changed; revalidate capabilities first.' }
+$launchPython = $config.python_path
+if ([IO.Path]::GetFileName($launchPython) -ieq 'python.exe') {
+    $windowlessPython = Join-Path ([IO.Path]::GetDirectoryName($launchPython)) 'pythonw.exe'
+    if (Test-Path -LiteralPath $windowlessPython -PathType Leaf) { $launchPython = $windowlessPython }
+}
 New-Item -ItemType Directory -Path $state -Force | Out-Null
-foreach ($path in @($configFile.FullName,$config.python_path,$config.app_tools_server,$script,$state)) {
+foreach ($path in @($configFile.FullName,$launchPython,$config.app_tools_server,$script,$state)) {
     $item = Get-Item -LiteralPath $path
     if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw ('Unexpected link: ' + $path) }
 }
-$process = Start-Process -FilePath $config.python_path -ArgumentList @('"' + $script + '"','--config','"' + $configFile.FullName + '"','--run') -WorkingDirectory $PSScriptRoot -WindowStyle Hidden -RedirectStandardOutput (Join-Path $state 'stdout.log') -RedirectStandardError (Join-Path $state 'stderr.log') -PassThru
+$process = Start-Process -FilePath $launchPython -ArgumentList @('"' + $script + '"','--config','"' + $configFile.FullName + '"','--run') -WorkingDirectory $PSScriptRoot -WindowStyle Hidden -RedirectStandardOutput (Join-Path $state 'stdout.log') -RedirectStandardError (Join-Path $state 'stderr.log') -PassThru
 Write-Output ('Recency worker started, PID=' + $process.Id)
