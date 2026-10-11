@@ -6,3 +6,8 @@ venv/
 .DS_Store
 upkeep-review.html
 !examples/upkeep-review.html
+
+# Device-local recency policy, state and audit data must stay outside the package.
+device-config.json
+codex-recency-config.local.json
+recency-state/
