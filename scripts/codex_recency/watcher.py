@@ -77,6 +77,7 @@ def rows(rpc, groups):
         response = rpc.call("thread/list", {
             "limit": 200, "cursor": cursor, "sortKey": "recency_at",
             "sortDirection": "desc", "useStateDbOnly": True,
+            "modelProviders": [], "archived": False,
         })
         # Discard previews, paths, titles and other unused response fields.
         data.extend({"id": t["id"], "section": {"id": t["section"]["id"]},
@@ -85,6 +86,19 @@ def rows(rpc, groups):
         cursor = response.get("nextCursor")
         if not cursor:
             return data
+
+
+def archived_ids(rpc):
+    identifiers, cursor = set(), None
+    while True:
+        response = rpc.call("thread/list", {
+            "limit": 200, "cursor": cursor, "sortKey": "updated_at",
+            "useStateDbOnly": True, "modelProviders": [], "archived": True,
+        })
+        identifiers.update(t["id"] for t in response["data"])
+        cursor = response.get("nextCursor")
+        if not cursor:
+            return identifiers
 
 
 def select_changes(current, previous, initial=False, since=None):
@@ -113,13 +127,17 @@ def validate_groups(snapshot, groups):
     return sections
 
 
-def move(app, row, groups):
+def move(app, row, groups, known_archived=()):
     group = groups[row["section"]["id"]]
     frontend = group["sidebar_section_id"]
     key = "codex:thread:local:" + row["id"]
     section = validate_groups(app.tool("list_threads", {"limit": 1}), groups)[frontend]
-    keys = section["itemKeys"]
+    archived_keys = {"codex:thread:local:" + identifier for identifier in known_archived}
+    raw_keys = section["itemKeys"]
+    keys = [key for key in raw_keys if key not in archived_keys]
     receipt = {"thread_id": row["id"], "section_id": frontend, "recency_at": row["recencyAt"]}
+    if key in archived_keys:
+        return dict(receipt, result="skipped-archived")
     if key not in keys:
         return dict(receipt, result="skipped-not-current-member")
     if keys[0] == key:
@@ -128,23 +146,25 @@ def move(app, row, groups):
         "threadId": row["id"], "hostId": "local", "source": "codex", "sectionId": frontend,
     })
     updated = validate_groups(app.tool("list_threads", {"limit": 1}), groups)[frontend]
-    if set(updated["itemKeys"]) != set(keys) or len(updated["itemKeys"]) != len(keys):
+    updated_keys = [key for key in updated["itemKeys"] if key not in archived_keys]
+    if set(updated_keys) != set(keys) or len(updated_keys) != len(keys):
         raise RuntimeError("Group membership changed during move; paused")
-    if not updated["itemKeys"] or updated["itemKeys"][0] != key:
+    if not updated_keys or updated_keys[0] != key:
         raise RuntimeError("Native UI readback did not confirm promotion; paused")
-    if [k for k in updated["itemKeys"] if k != key] != [k for k in keys if k != key]:
+    if [k for k in updated_keys if k != key] != [k for k in keys if k != key]:
         raise RuntimeError("Other member relative order changed; paused")
     return dict(receipt, result="moved", before_index=keys.index(key), after_index=0,
-                member_set_unchanged=True, time=time.time())
+                member_set_unchanged=set(raw_keys) == set(updated["itemKeys"]),
+                active_member_set_unchanged=True, time=time.time())
 
 
-def app_cycle(factory, groups, changes):
+def app_cycle(factory, groups, changes, known_archived=()):
     # Node/app-tools is alive only for a bounded health check or changed batch.
     with factory() as app:
         validate_groups(app.tool("list_threads", {"limit": 1}), groups)
         for row in changes:
             # Commit each successful receipt before a later item can fail.
-            yield move(app, row, groups)
+            yield move(app, row, groups, known_archived)
 
 
 def make_progress(config):
@@ -185,7 +205,8 @@ def run(config, rpc_factory=Rpc, app_factory=None):
                 changes = select_changes(current, seen, initial=first, since=last_scan)
                 first, last_scan = False, time.time()
                 if changes or time.monotonic() >= next_health:
-                    for receipt in app_cycle(factory, groups, changes):
+                    known_archived = archived_ids(rpc)
+                    for receipt in app_cycle(factory, groups, changes, known_archived):
                         latest = (latest + [receipt])[-6:]
                         if receipt["result"] == "moved":
                             moves += 1

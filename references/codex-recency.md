@@ -8,6 +8,8 @@
 
 此适配器通过原生`thread/list`读`recencyAt`，每3秒检查活动变化，经原版已安装的`codex-app-tools` MCP执行同组移动并原生读回。`updatedAt`会受输出和元数据维护影响，不能替代用户活动时间。空闲期间只有Python与metadata app-server常驻；Node侧栏工具仅在变更批次或默认每60秒的健康检查时启动，结束后退出。不调用模型、不发消息，不产生循环推理token。
 
+2.3.3显式读取本机全部供应商的未归档活动；在上述已有变更/健康检查时，同一metadata接口补读原生归档ID。侧栏缓存可能暂时保留归档引用，守卫仅忽略当前确认已归档的本机Codex引用；未归档成员、其他来源对象、组身份和其他成员顺序变化仍停止。归档目标不移动，不新增查询定时器或常驻进程。
+
 Windows的“隐藏窗口”启动仍可能带来控制台宿主。2.3.1启动器优先配置python.exe同目录的pythonw.exe；CLI与Node子进程采用不继承控制台的DETACHED_PROCESS，stdio仍由重定向管道提供，见[微软进程创建标志](https://learn.microsoft.com/en-us/windows/win32/procthread/process-creation-flags)。当前实测省掉两个conhost，空闲两进程；Node调用时短暂增加一个进程。若同目录没有pythonw，保留原解释器，实际数量重新测量，不安装或猜其他运行时。
 
 这是当前实测接口下兼顾资源与及时性的方案，不能承诺绝对最小内存。Node短暂启动增加单次启动开销；当前原生CLI元数据进程仍有内存成本。受支持且真正投递的活动事件，或原生组内排序，才有进一步减少轮询的条件。不要通过读写内部数据库、修改应用包或自造管道协议省资源。
@@ -16,7 +18,7 @@ Windows的“隐藏窗口”启动仍可能带来控制台宿主。2.3.1启动�
 
 1. 当前设备、桌面/CLI形态、账号范围和后端版本；本适配器只处理本地Codex，不覆盖ChatGPT/远程会话。
 2. 实际执行器提供`CODEX_THREAD_ID`、`CODEX_CLI_PATH`、`CODEX_VERSION`、`CODEX_MCP_NODE_PATH`、`CODEX_APP_TOOLS_PIPE_PATH`。缺少时停止，不复制其他设备的值或伪造调用身份。
-3. 当前CLI的`thread/list`支持`useStateDbOnly`、`recency_at`和`recencyAt`，能分页完整返回目标组的本机元数据；当前安装工具提供`list_threads`和`move_thread_to_sidebar_section`。
+3. 当前CLI的`thread/list`支持`useStateDbOnly`、`recency_at`、`recencyAt`、归档筛选和显式供应商范围，能分页完整返回目标组的本机元数据；当前安装工具提供`list_threads`和`move_thread_to_sidebar_section`。
 4. `move_thread_to_sidebar_section`省略`beforeThreadId`确实移到同组首位，且工具读回反映当前侧栏；独立backend保存位置不等于当前侧栏立即刷新。
 5. 用户已明确持续授权具体已有组内排序、暂停方法及设备范围，保持人工归属。仅位置调整允许当前活跃会话；普通分类/改名仍执行原有并发保护。
 
@@ -44,7 +46,7 @@ python scripts/codex_recency/watcher.py --config C:/example/private-device-confi
 
 启动器显示实际PID并复用仍在线的同一worker。OS文件锁防止本状态目录的第二写入者；不约束其他客户端。并发身份、成员或相对顺序漂移会停止，原生接口未提供跨客户端事务，不能宣称原子保障。
 
-启动时仅协调每组最近的本机会话；以后只处理活动时间增长。同批从旧到新上移，最终最新在前。手动把旧记录加入组不算新活动；已在首位为no-op。每次写前复读原组，写后验证首位、成员集合和其他成员相对顺序，不分类、不改名、不变更项目/目录/运行状态。
+启动时仅协调每组最近的本机会话；以后只处理活动时间增长。同批从旧到新上移，最终最新在前。手动把旧记录加入组不算新活动；已在首位为no-op。每次写前复读原组，写后验证未归档目标首位、未归档成员集合和其他未归档成员相对顺序，不分类、不改名、不变更项目/目录/运行状态。收据分别记录原始引用集合与未归档集合是否保持，不把合法的归档缓存清理写成原始集合不变。
 
 ## 停止、恢复与记录
 

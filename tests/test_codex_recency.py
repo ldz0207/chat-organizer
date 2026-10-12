@@ -71,6 +71,20 @@ class ActivityTests(unittest.TestCase):
         self.assertEqual(calls[1][1]["cursor"], "next")
         self.assertEqual(set(result[0]), {"id", "section", "recencyAt"})
         self.assertNotIn("PRIVATE", json.dumps(result))
+        self.assertEqual(calls[0][1]["modelProviders"], [])
+        self.assertFalse(calls[0][1]["archived"])
+
+    def test_archived_ids_all_providers_paged_without_content(self):
+        calls = []
+        class Rpc:
+            def call(self, method, arguments):
+                calls.append(arguments)
+                return {"data": [{"id": str(len(calls)), "preview": "PRIVATE", "cwd": "PRIVATE"}],
+                        "nextCursor": "next" if len(calls) == 1 else None}
+        self.assertEqual(watcher.archived_ids(Rpc()), {"1", "2"})
+        self.assertEqual(calls[0]["modelProviders"], [])
+        self.assertTrue(calls[0]["archived"])
+        self.assertEqual(calls[1]["cursor"], "next")
 
 
 class MoveTests(unittest.TestCase):
@@ -110,6 +124,31 @@ class MoveTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "did not confirm"):
             watcher.move(FakeApp(changed=["codex:thread:local:other", "codex:thread:local:one"]), row(), GROUPS)
 
+    def test_known_archived_cache_reference_can_disappear(self):
+        app = FakeApp(["codex:thread:local:archived", "codex:thread:local:other", "codex:thread:local:one"],
+                      ["codex:thread:local:one", "codex:thread:local:other"])
+        result = watcher.move(app, row(), GROUPS, {"archived"})
+        self.assertEqual(result["result"], "moved")
+        self.assertEqual(result["before_index"], 1)
+        self.assertTrue(result["active_member_set_unchanged"])
+        self.assertFalse(result["member_set_unchanged"])
+
+    def test_archived_target_is_never_moved(self):
+        app = FakeApp()
+        self.assertEqual(watcher.move(app, row(), GROUPS, {"one"})["result"], "skipped-archived")
+        self.assertEqual(app.writes, 0)
+
+    def test_archived_reference_before_first_does_not_trigger_move(self):
+        app = FakeApp(["codex:thread:local:archived", "codex:thread:local:one", "codex:thread:local:other"])
+        self.assertEqual(watcher.move(app, row(), GROUPS, {"archived"})["result"], "already-first")
+        self.assertEqual(app.writes, 0)
+
+    def test_active_membership_drift_still_stops_with_archive_filter(self):
+        app = FakeApp(["codex:thread:local:archived", "codex:thread:local:other", "codex:thread:local:one"],
+                      ["codex:thread:local:one"])
+        with self.assertRaisesRegex(RuntimeError, "membership changed"):
+            watcher.move(app, row(), GROUPS, {"archived"})
+
 
 class LifecycleTests(unittest.TestCase):
     def test_successful_receipt_is_available_before_later_batch_failure(self):
@@ -138,6 +177,8 @@ class LifecycleTests(unittest.TestCase):
                 def __enter__(self): return self
                 def __exit__(self, *args): pass
                 def call(self, method, arguments):
+                    if arguments.get("archived"):
+                        return {"data": [], "nextCursor": None}
                     scans.append(1)
                     return {"data": [row(stamp=11 if len(scans) >= 3 else 10)], "nextCursor": None}
             class App(FakeApp):
