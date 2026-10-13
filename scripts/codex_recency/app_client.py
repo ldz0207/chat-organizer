@@ -6,11 +6,13 @@ import queue
 import subprocess
 import threading
 import time
+from interface_errors import InterfaceUnavailable, RequestTimedOut
 
 
 class AppClient:
-    def __init__(self, server):
+    def __init__(self, server, request_timeout=90, on_wait=None):
         self.thread_id = os.environ["CODEX_THREAD_ID"]
+        self.request_timeout, self.on_wait = request_timeout, on_wait
         self.next_id = 0
         self.queue = queue.Queue()
         self.errors = deque(maxlen=20)
@@ -51,17 +53,35 @@ class AppClient:
         for line in self.process.stderr:
             self.errors.append(line.rstrip())
 
-    def call(self, method, params, timeout=25):
+    def call(self, method, params, timeout=None):
+        timeout = self.request_timeout if timeout is None else timeout
+        operation = method + (":" + params["name"] if method == "tools/call" else "")
         self.next_id += 1
         request_id = self.next_id
-        self.send({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params})
+        try:
+            self.send({"jsonrpc": "2.0", "id": request_id, "method": method, "params": params})
+        except OSError as error:
+            if isinstance(error, PermissionError) or (not isinstance(error, (BrokenPipeError, ConnectionError))
+                                                     and self.process.poll() is None):
+                raise
+            raise InterfaceUnavailable("app", operation, "transport disconnected") from error
         deadline = time.monotonic() + timeout
         while True:
-            item = self.queue.get(timeout=max(.01, deadline - time.monotonic()))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RequestTimedOut("app", operation, timeout)
+            try:
+                item = self.queue.get(timeout=min(1, remaining))
+            except queue.Empty:
+                if self.on_wait:
+                    self.on_wait(operation)
+                continue
             if item.get("eof"):
-                raise RuntimeError("App MCP transport closed: " + "\n".join(self.errors))
+                raise InterfaceUnavailable("app", operation, "transport closed: " + "\n".join(self.errors))
             if item.get("id") == request_id:
                 if "error" in item:
+                    if item["error"].get("code") == -32001:
+                        raise RequestTimedOut("app", operation, timeout)
                     raise RuntimeError(str(item["error"]))
                 return item["result"]
 
@@ -78,8 +98,11 @@ class AppClient:
         return json.loads(texts[0])
 
     def close(self):
-        if self.process.poll() is None:
+        try:
             self.process.stdin.close()
+        except OSError:
+            pass  # The owned pipe may already be invalid after child exit.
+        if self.process.poll() is None:
             try:
                 self.process.wait(timeout=3)
             except subprocess.TimeoutExpired:

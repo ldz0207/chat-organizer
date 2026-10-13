@@ -5,10 +5,12 @@ import queue
 import subprocess
 import threading
 import time
+from interface_errors import InterfaceUnavailable, RequestTimedOut
 
 
 class Rpc:
-    def __init__(self, binary):
+    def __init__(self, binary, on_wait=None):
+        self.on_wait = on_wait
         self.next_id = 0
         self.queue = queue.Queue()
         self.errors = deque(maxlen=20)
@@ -50,20 +52,37 @@ class Rpc:
     def call(self, method, params, timeout=12):
         self.next_id += 1
         request_id = self.next_id
-        self.send({"method": method, "id": request_id, "params": params})
+        try:
+            self.send({"method": method, "id": request_id, "params": params})
+        except OSError as error:
+            if isinstance(error, PermissionError) or (not isinstance(error, (BrokenPipeError, ConnectionError))
+                                                     and self.process.poll() is None):
+                raise
+            raise InterfaceUnavailable("metadata", method, "transport disconnected") from error
         deadline = time.monotonic() + timeout
         while True:
-            item = self.queue.get(timeout=max(.01, deadline - time.monotonic()))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise RequestTimedOut("metadata", method, timeout)
+            try:
+                item = self.queue.get(timeout=min(1, remaining))
+            except queue.Empty:
+                if self.on_wait:
+                    self.on_wait(method)
+                continue
             if item.get("eof"):
-                raise RuntimeError("App-server transport closed: " + "\n".join(self.errors))
+                raise InterfaceUnavailable("metadata", method, "transport closed: " + "\n".join(self.errors))
             if item.get("id") == request_id:
                 if "error" in item:
                     raise RuntimeError("{}: {}".format(method, item["error"]))
                 return item.get("result")
 
     def close(self):
-        if self.process.poll() is None:
+        try:
             self.process.stdin.close()
+        except OSError:
+            pass  # The owned pipe may already be invalid after child exit.
+        if self.process.poll() is None:
             try:
                 self.process.wait(timeout=3)
             except subprocess.TimeoutExpired:

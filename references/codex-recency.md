@@ -6,7 +6,9 @@
 
 先检查当前版本是否原生支持自定义组内的活动排序；支持时优先原生设置。一个实测版本中，自定义组按保存的itemKeys显示，普通最近更新排序未覆盖组内。此时UserPromptSubmit hook的存在/信任状态也不证明桌面真实投递；没有实证不得声称已触发。
 
-此适配器通过原生`thread/list`读`recencyAt`，每3秒检查活动变化，经原版已安装的`codex-app-tools` MCP执行同组移动并原生读回。`updatedAt`会受输出和元数据维护影响，不能替代用户活动时间。空闲期间只有Python与metadata app-server常驻；Node侧栏工具仅在变更批次或默认每60秒的健康检查时启动，结束后退出。不调用模型、不发消息，不产生循环推理token。
+此适配器通过原生`thread/list`读`recencyAt`，每3秒检查活动变化，经原版已安装的`codex-app-tools` MCP执行同组移动并原生读回。`updatedAt`会受输出和元数据维护影响，不能替代用户活动时间。空闲期间只有Python与metadata app-server常驻；Node侧栏工具仅在变更批次或默认每60秒的健康检查时启动，结束后退出。空闲健康只初始化并核验原生tools/list，不读取全局会话；移动前仍完整核对原生组身份与成员。不调用模型、不发消息，不产生循环推理token。
+
+2.3.3显式读取本机全部供应商的未归档活动；在上述已有变更/健康检查时，同一metadata接口补读原生归档ID。侧栏缓存可能暂时保留归档引用，守卫仅忽略当前确认已归档的本机Codex引用；未归档成员、其他来源对象、组身份和其他成员顺序变化仍停止。归档目标不移动，不新增查询定时器或常驻进程。
 
 Windows的“隐藏窗口”启动仍可能带来控制台宿主。2.3.1启动器优先配置python.exe同目录的pythonw.exe；CLI与Node子进程采用不继承控制台的DETACHED_PROCESS，stdio仍由重定向管道提供，见[微软进程创建标志](https://learn.microsoft.com/en-us/windows/win32/procthread/process-creation-flags)。当前实测省掉两个conhost，空闲两进程；Node调用时短暂增加一个进程。若同目录没有pythonw，保留原解释器，实际数量重新测量，不安装或猜其他运行时。
 
@@ -16,7 +18,7 @@ Windows的“隐藏窗口”启动仍可能带来控制台宿主。2.3.1启动�
 
 1. 当前设备、桌面/CLI形态、账号范围和后端版本；本适配器只处理本地Codex，不覆盖ChatGPT/远程会话。
 2. 实际执行器提供`CODEX_THREAD_ID`、`CODEX_CLI_PATH`、`CODEX_VERSION`、`CODEX_MCP_NODE_PATH`、`CODEX_APP_TOOLS_PIPE_PATH`。缺少时停止，不复制其他设备的值或伪造调用身份。
-3. 当前CLI的`thread/list`支持`useStateDbOnly`、`recency_at`和`recencyAt`，能分页完整返回目标组的本机元数据；当前安装工具提供`list_threads`和`move_thread_to_sidebar_section`。
+3. 当前CLI的`thread/list`支持`useStateDbOnly`、`recency_at`、`recencyAt`、归档筛选和显式供应商范围，能分页完整返回目标组的本机元数据；当前安装工具提供`list_threads`和`move_thread_to_sidebar_section`。
 4. `move_thread_to_sidebar_section`省略`beforeThreadId`确实移到同组首位，且工具读回反映当前侧栏；独立backend保存位置不等于当前侧栏立即刷新。
 5. 用户已明确持续授权具体已有组内排序、暂停方法及设备范围，保持人工归属。仅位置调整允许当前活跃会话；普通分类/改名仍执行原有并发保护。
 
@@ -44,13 +46,19 @@ python scripts/codex_recency/watcher.py --config C:/example/private-device-confi
 
 启动器显示实际PID并复用仍在线的同一worker。OS文件锁防止本状态目录的第二写入者；不约束其他客户端。并发身份、成员或相对顺序漂移会停止，原生接口未提供跨客户端事务，不能宣称原子保障。
 
-启动时仅协调每组最近的本机会话；以后只处理活动时间增长。同批从旧到新上移，最终最新在前。手动把旧记录加入组不算新活动；已在首位为no-op。每次写前复读原组，写后验证首位、成员集合和其他成员相对顺序，不分类、不改名、不变更项目/目录/运行状态。
+启动时仅协调每组最近的本机会话；以后只处理活动时间增长。同批从旧到新上移，最终最新在前。手动把旧记录加入组不算新活动；已在首位为no-op。每次写前复读原组，写后验证未归档目标首位、未归档成员集合和其他未归档成员相对顺序，不分类、不改名、不变更项目/目录/运行状态。收据分别记录原始引用集合与未归档集合是否保持，不把合法的归档缓存清理写成原始集合不变。
 
 ## 停止、恢复与记录
 
+2.3.4将侧栏请求时限改为默认90秒（私有配置`app_request_timeout_seconds`，30–120秒），队列超时和管道断开有明确类型及操作名。实际只读查询会超过旧25秒截止；传输故障不再直接终止排序worker。等待期间同一线程更新心跳，不增设监控进程。启动器复用running、checking-interface、reconnecting及waiting-activity中的同一存活worker。
+
+只对传输超时/断开进行进程内重连，先关闭故障接口，5秒、15秒退避，最多连续三次尝试。失败活动不写成已处理，已成功收据和活动检查点即时保留。侧栏三次仍不通时，保留元数据监听但暂停侧栏请求，状态为waiting-activity；下次原生recencyAt确实增加时自动再连接并处理积压。不会靠持续空查询反复重启，也不需要用户另外启动脚本。元数据接口本身连续三次仍不可用则停止并留明确错误，重开应用导致接入环境改变仍需现有Agent入口提供当前真实环境。
+
+移动提交前保存pending-move.json。移动或写后读回超时，恢复先读取原生侧栏：只有目标首位、未归档成员集合和其他成员相对顺序均确认后才补成功收据，不重复发送移动。结果不能确认、权限拒绝、组身份/成员/顺序漂移及未知错误仍安全停止，不自动解除。手动停止标记也不会被重连清除；等待循环可响应停止，未确认的已提交请求保留待核对记录。
+
 `stop.ps1`写停止标记，worker完成当前提交的原生调用后退出。暂停不撤销已完成位置变化；恢复必须明确授权，核对状态后仅移除该停止标记并重新启动。权限拒绝、组身份变化或读回失败暂停，不自动切换接口、重复覆盖或撤销后来人工操作。
 
-`state_dir`存watcher.json心跳、last-recency.json元数据检查点、moves.jsonl成功收据及stdout/stderr日志。只保留ID、活动时间和位置结果，不保留标题、路径或转录。日志仍是私有元数据，放仓库外。重启沿检查点继续，首次启用不是反复静态重排。
+`state_dir`存watcher.json心跳、last-recency.json元数据检查点、moves.jsonl成功收据、interface-errors.jsonl传输诊断、必要时pending-move.json及stdout/stderr日志。只保留ID、活动时间和位置结果，不保留标题、路径或转录。日志仍是私有元数据，放仓库外。重启沿检查点继续，首次启用不是反复静态重排。
 
 不自动注册服务、开机项或新定时任务。重开桌面后接入管道可能改变；按已授权的现有Agent入口恢复并使用新执行器环境。完整桌面关闭/重开未实测时明确保留该限制。
 
