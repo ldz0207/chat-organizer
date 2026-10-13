@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "backend_version": "REPLACE_WITH_VERIFIED_BACKEND_VERSION",
+  "python_path": "C:/example/runtime/python.exe",
+  "app_tools_server": "C:/example/installed-codex-app-tools/server.mjs",
+  "state_dir": "C:/example/local-recency-state",
+  "interval_seconds": 3,
+  "app_health_seconds": 60,
+  "groups": [
+    {
+      "native_section_id": "synthetic-native-group-a",
+      "sidebar_section_id": "synthetic-sidebar-group-a",
+      "name": "Example existing group"
+    }
+  ]
+}
