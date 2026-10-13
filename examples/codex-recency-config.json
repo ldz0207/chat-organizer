@@ -6,6 +6,7 @@
   "state_dir": "C:/example/local-recency-state",
   "interval_seconds": 3,
   "app_health_seconds": 60,
+  "app_request_timeout_seconds": 90,
   "groups": [
     {
       "native_section_id": "synthetic-native-group-a",

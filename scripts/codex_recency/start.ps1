@@ -14,10 +14,10 @@ if (Test-Path -LiteralPath $record) {
         $details = Get-CimInstance Win32_Process -Filter ('ProcessId=' + $previous.pid)
         if (-not $details.CommandLine.Contains($script)) { $process = $null }
     }
-    if ($previous.status -eq 'failed' -and $previous.error -match 'denied|permission|Approved group|membership|relative order|readback|Untested') {
+    if ($previous.status -eq 'failed' -and ($previous.failure_kind -eq 'safety' -or $previous.error -match 'denied|permission|Approved group|membership|relative order|readback|Untested')) {
         throw ('Recency worker requires capability/state review: ' + $previous.error)
     }
-    if ($process -and $previous.status -eq 'running') {
+    if ($process -and $previous.status -in @('running','checking-interface','reconnecting','waiting-activity')) {
         if ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - $previous.updated_at -ge 40) { throw 'Existing worker heartbeat is stale; no duplicate writer started.' }
         Write-Output ('Recency worker online, PID=' + $previous.pid); exit 0
     }
