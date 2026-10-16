@@ -3,6 +3,7 @@ import json
 from collections import deque
 import os
 import queue
+import re
 import subprocess
 import threading
 import time
@@ -91,7 +92,15 @@ class AppClient:
             "_meta": {"openai/threadId": self.thread_id},
         })
         if result.get("isError"):
-            raise RuntimeError(str(result.get("content")))
+            content = result.get("content", [])
+            # The installed MCP server can report its inner RPC deadline as a
+            # tool-result error instead of a JSON-RPC error. Keep that exact
+            # transport failure reconnectable; all other errors still stop.
+            if (len(content) == 1 and content[0].get("type") == "text"
+                    and re.fullmatch(r"Timed out waiting for MCP response to [A-Za-z0-9_/-]+",
+                                     content[0].get("text", ""))):
+                raise InterfaceUnavailable("app", "tools/call:" + name, content[0]["text"])
+            raise RuntimeError(str(content))
         texts = [c["text"] for c in result.get("content", []) if c.get("type") == "text"]
         if not texts:
             raise RuntimeError("Native tool returned no readable result")

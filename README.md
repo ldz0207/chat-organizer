@@ -1,4 +1,4 @@
-# AI Agent Harness 任务分组 · chat-organizer · 2.4.0
+# AI Agent Harness 任务分组 · chat-organizer · 2.4.1
 
 可复用的中文技能包：识别当前宿主与设备，先提分类方案并取得确认，再通过该应用真实支持的原生方式归组；不支持时只生成建议。
 
