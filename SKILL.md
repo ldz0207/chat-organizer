@@ -1,5 +1,5 @@
 ---
-name: group-agent-tasks
+name: chat-organizer
 description: 跨设备整理 AI Agent Harness 的任务与会话分组，按实际内容命名并在本批结束后补命名；可选当前回合收尾命名与初始归组。用于分类、侧栏整理、明确请求的Codex旧会话归档审阅及有界自动维护；先核验原生能力与授权范围，按用户要求先确认。不把文件夹、标签或工作目录伪装成原生分组；WorkBuddy故障独立诊断。
 ---
 
