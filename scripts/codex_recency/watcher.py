@@ -23,7 +23,20 @@ class StopRequested(RuntimeError):
 def save(path, value):
     temporary = path.with_name(path.name + ".{}.tmp".format(os.getpid()))
     temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(temporary, path)
+    # Windows readers may omit FILE_SHARE_DELETE, briefly blocking rename even
+    # when the file is writable. Keep the atomic write and wait at most 0.9s;
+    # persistent denial still raises, without changing permissions or data.
+    delays = (0, .02, .04, .08, .16, .25, .35)
+    for attempt, delay in enumerate(delays):
+        if delay:
+            time.sleep(delay)
+        try:
+            os.replace(temporary, path)
+            return
+        except OSError as error:
+            if (os.name != "nt" or getattr(error, "winerror", None) not in (5, 32, 33)
+                    or attempt == len(delays) - 1):
+                raise
 
 
 def load_config(path):
