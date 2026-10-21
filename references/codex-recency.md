@@ -50,6 +50,10 @@ python scripts/codex_recency/watcher.py --config C:/example/private-device-confi
 
 ## 停止、恢复与记录
 
+Windows 读取句柄如果没有允许 `FILE_SHARE_DELETE`，即使目标可写，也可能暂时阻止原子替换。状态保存仅对本地 `os.replace` 的 WinError 5/32/33 做累计最多 0.9 秒的有限重试；正常保存不等待，持久拒绝仍停止，不改权限、属性，不删除目标或强制解锁。共享模式持续到句柄关闭，见[微软文件共享说明](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew)。故障发生后不能仅凭错误反推是哪一个进程持有原句柄。
+
+后台 worker 监听本机元数据，不以活动视图是否展开为条件。验收时可保持活动视图关闭，核对真实旧会话的新活动、自动移动收据及原生侧栏位置；关闭活动视图与退出 Codex 是两种状态，不能相互替代验收。原生快照读回也不能证明界面开关的实际显示状态，应记录用户提供的条件和 Agent 是否打开过该视图。
+
 2.3.4将侧栏请求时限改为默认90秒（私有配置`app_request_timeout_seconds`，30–120秒），队列超时和管道断开有明确类型及操作名。实际只读查询会超过旧25秒截止；传输故障不再直接终止排序worker。等待期间同一线程更新心跳，不增设监控进程。启动器复用running、checking-interface、reconnecting及waiting-activity中的同一存活worker。
 
 只对传输超时/断开进行进程内重连，先关闭故障接口，5秒、15秒退避，最多连续三次尝试。失败活动不写成已处理，已成功收据和活动检查点即时保留。侧栏三次仍不通时，保留元数据监听但暂停侧栏请求，状态为waiting-activity；下次原生recencyAt确实增加时自动再连接并处理积压。不会靠持续空查询反复重启，也不需要用户另外启动脚本。元数据接口本身连续三次仍不可用则停止并留明确错误，重开应用导致接入环境改变仍需现有Agent入口提供当前真实环境。
