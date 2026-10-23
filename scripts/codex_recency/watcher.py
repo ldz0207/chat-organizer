@@ -52,6 +52,8 @@ def load_config(path):
     for key in ("app_tools_server", "state_dir"):
         if not Path(config[key]).is_absolute():
             raise ValueError("{} must be an absolute device-local path".format(key))
+    if config.get("sidebar_alias_bindings_path") and not Path(config["sidebar_alias_bindings_path"]).is_absolute():
+        raise ValueError("Sidebar alias metadata must use an absolute device-local path")
     interval = config.get("interval_seconds", 3)
     health = config.get("app_health_seconds", 60)
     if not 1 <= interval <= 60 or not interval <= health <= 300:
@@ -294,7 +296,8 @@ def run(config, rpc_factory=Rpc, app_factory=None):
         publish("checking-interface", operation, force=False)
 
     factory = app_factory or (lambda: AppClient(config["app_tools_server"],
-                                                config.get("app_request_timeout_seconds", 90), on_wait))
+                                                config.get("app_request_timeout_seconds", 90), on_wait,
+                                                config.get("sidebar_alias_bindings_path")))
     try:
         with worker_guard(state / "worker.lock"), ExitStack() as rpc_stack:
             rpc = None

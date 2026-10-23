@@ -8,12 +8,14 @@ import subprocess
 import threading
 import time
 from interface_errors import InterfaceUnavailable, RequestTimedOut
+from sidebar_aliases import normalize_snapshot
 
 
 class AppClient:
-    def __init__(self, server, request_timeout=90, on_wait=None):
+    def __init__(self, server, request_timeout=90, on_wait=None, sidebar_alias_bindings_path=None):
         self.thread_id = os.environ["CODEX_THREAD_ID"]
         self.request_timeout, self.on_wait = request_timeout, on_wait
+        self.sidebar_alias_bindings_path = sidebar_alias_bindings_path
         self.next_id = 0
         self.queue = queue.Queue()
         self.errors = deque(maxlen=20)
@@ -104,7 +106,8 @@ class AppClient:
         texts = [c["text"] for c in result.get("content", []) if c.get("type") == "text"]
         if not texts:
             raise RuntimeError("Native tool returned no readable result")
-        return json.loads(texts[0])
+        value = json.loads(texts[0])
+        return normalize_snapshot(value, self.sidebar_alias_bindings_path) if name == "list_threads" else value
 
     def close(self):
         try:
